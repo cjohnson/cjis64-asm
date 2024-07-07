@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -5,38 +6,53 @@
 
 #include "instruction.h"
 
-int parse_register(const char *register_name_buffer, uint64_t *register_code) {
-  if (register_name_buffer == NULL) {
+int parse_register(const char *register_buffer, uint64_t *register_code) {
+  if (register_buffer == NULL) {
     fprintf(stderr, "Register name buffer was null.\n");
+    assert(!"Register name buffer was null.");
     return 0;
   }
 
-  if (!strcmp(register_name_buffer, "rzr")) {
-    *register_code = 32;
+  if (register_code == NULL) {
+    fprintf(stderr, "Register code write buffer was null.\n");
+    assert(!"Register code write buffer was null.\n");
+    return 0;
+  }
+
+  int len = strlen(register_buffer);
+  if (len < 2 || len > 3) {
+    fprintf(stderr, "Unrecognized register: '%s'.\n", register_buffer);
+    assert(!"Unrecognized register.\n");
+    return 0;
+  }
+
+  if (*register_buffer != 'r') {
+    fprintf(stderr, "Unrecognized register: '%s'.\n", register_buffer);
+    assert(!"Unrecognized register.\n");
+    return 0;
+  }
+
+  const char *register_identifier = register_buffer + 1;
+
+  if (!strcmp(register_identifier, "zr")) {
+    *register_code = REGISTER_RZR;
     return 1;
   }
 
-  if (*register_name_buffer == 'r') {
-    const char *register_name_buffer_code_part = register_name_buffer + 1;
-    char *end_pointer;
-
-    uint64_t parsed_register_code = strtoul(register_name_buffer_code_part, &end_pointer, 10);
-    if (register_name_buffer_code_part == end_pointer) {
-      fprintf(stderr, "Unrecognized register name: '%s'\n", register_name_buffer);
-      return 0;
-    }
-
-    if (parsed_register_code > 31) {
-      fprintf(stderr, "Unrecognized register name: '%s'\n", register_name_buffer);
-      return 0;
-    }
-
-    *register_code = parsed_register_code;
-    return 1;
+  char *read_end;
+  uint64_t parsed_register_number = strtoul(register_identifier, &read_end, 10);
+  if (read_end == register_identifier) {
+    fprintf(stderr, "Failed to parse register: '%s'\n", register_buffer);
+    return 0;
   }
 
-  fprintf(stderr, "Unrecognized register name: '%s'\n", register_name_buffer);
-  return 0;
+  if (parsed_register_number > REGISTER_R31) {
+    fprintf(stderr, "Unrecognized register: '%s'\n", register_buffer);
+    return 0;
+  }
+
+  *register_code = parsed_register_number;
+  return 1;
 }
 
 int parse_opcode(const char *opcode_name_buffer, uint64_t *opcode) {
@@ -49,13 +65,17 @@ int parse_opcode(const char *opcode_name_buffer, uint64_t *opcode) {
     *opcode = ADDR;
     return 1;
   }
+  if (!strcmp(opcode_name_buffer, "subr")) {
+    *opcode = SUBR;
+    return 1;
+  }
 
   fprintf(stderr, "Unrecognized opcode: '%s'\n", opcode_name_buffer);
   return 0;
 }
 
 int main(void) {
-  char source[] = "addr    r0    r0    r1";
+  char source[] = "subr    r0    r0    r1";
 
   instruction inst;
 
